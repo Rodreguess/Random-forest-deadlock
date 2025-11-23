@@ -1,90 +1,93 @@
 import random
 import pandas as pd
 import numpy as np
-
-def gerar_snapshot(snapshot_id: int):
-    """
-    Gera uma simulação de um snapshot do sistema com dados técnicos simples.
-    """
-    num_processes = random.randint(3, 15)
-    num_threads = num_processes * random.randint(2, 8)
-
-    # Threads que estão esperando recursos
-    num_waiting_threads = random.randint(0, num_threads // 2)
-    pct_threads_waiting = num_waiting_threads / num_threads
-
-    # Métricas médias
-    avg_cpu_usage = round(random.uniform(5, 90), 2)  # em %
-    avg_blocked_time_ms = round(random.uniform(10, 2000), 2)
-    avg_resources_held = round(random.uniform(0.5, 3.0), 2)
-    avg_resources_waiting = round(random.uniform(0.0, 2.5), 2)
-
-    # Geração pseudoaleatória de deadlock
-    # Deadlocks tendem a ocorrer quando há:
-    # - muitos threads esperando
-    # - alto tempo bloqueado
-    # - recursos disputados
-    if (
-        num_waiting_threads > num_threads * 0.4 and
-        avg_blocked_time_ms > 1000 and
-        avg_resources_waiting > 1.5
-    ):
-        has_deadlock = 1
-    else:
-        has_deadlock = 0
-
-    return {
-        "snapshot_id": f"S{snapshot_id:05d}",
-        "num_processes": num_processes,
-        "num_threads": num_threads,
-        "num_waiting_threads": num_waiting_threads,
-        "pct_threads_waiting": round(pct_threads_waiting, 2),
-        "avg_cpu_usage": avg_cpu_usage,
-        "avg_blocked_time_ms": avg_blocked_time_ms,
-        "avg_resources_held": avg_resources_held,
-        "avg_resources_waiting": avg_resources_waiting,
-        "has_deadlock": has_deadlock
-    }
-
-def gerar_dataset(n=1000, seed=42):
-    random.seed(seed)
-    np.random.seed(seed)
-    data = [gerar_snapshot(i + 1) for i in range(n)]
-    df = pd.DataFrame(data)
-
-    # embaralha e salva
-    df = df.sample(frac=1).reset_index(drop=True)
-    df.to_csv("dataset_simplificado.csv", index=False)
-    print(f"✅ Dataset gerado com {len(df)} snapshots.")
-    print(f"📁 Arquivo salvo como 'dataset_simplificado.csv'")
-    print(df.head(10))
-    return df
-
-import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 
+def gerar_dados(id_instantaneo: int):
+    """Gera um conjunto de dados simulando o estado do sistema (snapshot)."""
+    num_processos = random.randint(3, 15)
+    num_threads = num_processos * random.randint(2, 8)
+
+    num_threads_esperando = random.randint(0, num_threads // 2)
+    pct_threads_esperando = num_threads_esperando / num_threads
+
+    uso_medio_cpu = round(random.uniform(5, 90), 2)
+    tempo_medio_bloqueio_ms = round(random.uniform(10, 2000), 2)
+    recursos_medio_em_uso = round(random.uniform(0.5, 3.0), 2)
+    recursos_medio_espera = round(random.uniform(0.0, 2.5), 2)
+
+    # novas métricas
+    tempo_max_bloqueio_ms = round(random.uniform(tempo_medio_bloqueio_ms, tempo_medio_bloqueio_ms * 1.8), 2)
+    desvio_padrao_bloqueio_ms = round(random.uniform(5, 300), 2)
+    taxa_contention = round(recursos_medio_espera / (recursos_medio_em_uso + 0.001), 2)
+    pct_processos_esperando = round(random.uniform(0, 0.6), 2)
+    delta_tempo_bloqueio = round(random.uniform(-100, 500), 2)
+
+    # pontuação probabilística para deadlock
+    pontuacao = (
+        0.4 * (num_threads_esperando / num_threads)
+        + 0.3 * (tempo_medio_bloqueio_ms / 2000)
+        + 0.2 * (recursos_medio_espera / 2.5)
+        + 0.1 * taxa_contention
+    )
+    tem_deadlock = 1 if pontuacao > 0.7 else 0
+
+    dados = {
+        "id_instantaneo": f"S{id_instantaneo:05d}",
+        "num_processos": num_processos,
+        "num_threads": num_threads,
+        "num_threads_esperando": num_threads_esperando,
+        "pct_threads_esperando": round(pct_threads_esperando, 2),
+        "uso_medio_cpu": uso_medio_cpu,
+        "tempo_medio_bloqueio_ms": tempo_medio_bloqueio_ms,
+        "recursos_medio_em_uso": recursos_medio_em_uso,
+        "recursos_medio_espera": recursos_medio_espera,
+        "tempo_max_bloqueio_ms": tempo_max_bloqueio_ms,
+        "desvio_padrao_bloqueio_ms": desvio_padrao_bloqueio_ms,
+        "taxa_contention": taxa_contention,
+        "pct_processos_esperando": pct_processos_esperando,
+        "delta_tempo_bloqueio": delta_tempo_bloqueio,
+        "tem_deadlock": tem_deadlock
+    }
+
+    return dados
+
+
+def gerar_base_dados(qtd=1000, semente=42):
+    random.seed(semente)
+    np.random.seed(semente)
+    dados = [gerar_dados(i + 1) for i in range(qtd)]
+    df = pd.DataFrame(dados)
+
+    df = df.sample(frac=1).reset_index(drop=True)
+    df.to_csv("base_deadlock.csv", index=False)
+    print(f"✅ Base de dados gerada com {len(df)} instantes de sistema.")
+    print(df.head(10))
+    return df
 
 def previsao():
-    df = pd.read_csv("dataset_simplificado.csv")
+    df = pd.read_csv("base_deadlock.csv")
 
-    X = df.drop(columns=["snapshot_id", "has_deadlock"])
-    y = df["has_deadlock"]
+    X = df.drop(columns=["id_instantaneo", "tem_deadlock"])
+    y = df["tem_deadlock"]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+    X_treino, X_teste, y_treino, y_teste = train_test_split(X, y, test_size=0.15, random_state=42)
 
-    model = RandomForestClassifier(
+    modelo = RandomForestClassifier(
         n_estimators=400,
-        max_depth=10,
-        min_samples_split=4,
-        random_state=42
+        max_depth=12,
+        min_samples_split=2,
+        random_state=42,
+        class_weight='balanced'
     )
 
-    model.fit(X_train, y_train)
+    modelo.fit(X_treino, y_treino)
 
-    print(classification_report(y_test, model.predict(X_test)))
+    print("Threshold padrão (0.5):")
+    print(classification_report(y_teste, modelo.predict(X_teste)))
 
 if __name__ == "__main__":
-    gerar_dataset(10000)
+    gerar_base_dados(10000)
     previsao()
