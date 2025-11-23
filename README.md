@@ -105,5 +105,7 @@ Python:
     RandomForestClassifier.
 
 👨‍💻 Autores:
+
 Gabriel Rodrigues da Silva.
+
 Deibson dos Santos Lima.
