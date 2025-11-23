@@ -35,19 +35,27 @@ Com esses dados, um modelo RandomForestClassifier é treinado para classificar a
 ✔️ Código modular, claro e de fácil manutenção;
 
 📂 Estrutura e Detalhes Técnicos:
+
 O arquivo main.py está dividido em três partes principais:
 
 🔹 1. Geração dos Dados Sintéticos:
+
 A função gerar_dados() cria snapshots simulados do sistema, contendo diversas métricas relevantes do ambiente concorrente.
 
 🔹 2. Construção da Base de Dados:
+
 A função gerar_base_dados(qtd=10000) gera um arquivo CSV com milhares de exemplos rotulados.
 
 🔹 3. Treinamento e Avaliação:
+
 A função previsao() treina o modelo Random Forest e exibe métricas como:
+
     Accuracy;
+    
     Precision;
+    
     Recall;
+    
     F1-score.
 
 🛠️ Requisitos Para Rodar o Projeto:
