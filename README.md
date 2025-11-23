@@ -49,13 +49,21 @@ python main.py --gerar
 
 📊 Exemplos de Métricas Utilizadas:
     num_processos;
+    
     num_threads;
+    
     num_threads_esperando;
+    
     pct_threads_esperando;
+    
     uso_medio_cpu;
+    
     tempo_medio_bloqueio_ms;
+    
     taxa_contention;
+    
     recursos_medio_espera;
+    
     tem_deadlock (label final).
 
 📚 Tecnologias Utilizadas:
