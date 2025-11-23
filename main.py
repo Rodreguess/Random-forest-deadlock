@@ -6,19 +6,28 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 
 def gerar_dados(id_instantaneo: int):
-    """Gera um conjunto de dados simulando o estado do sistema (snapshot)."""
+    """Gera um conjunto de dados simulando o estado do sistema"""
+    cenario_critico = random.choice([True, False])
+
     num_processos = random.randint(3, 15)
     num_threads = num_processos * random.randint(2, 8)
 
-    num_threads_esperando = random.randint(0, num_threads // 2)
+    if cenario_critico:
+        # Força métricas altas para gerar Deadlock
+        pct_espera = random.uniform(0.4, 0.7) # Muita gente esperando
+        tempo_medio_bloqueio_ms = random.uniform(1300, 2000) # Bloqueio alto
+        recursos_medio_espera = random.uniform(1.9, 3.0)
+    else:
+        # Cenário normal
+        pct_espera = random.uniform(0.0, 0.3)
+        tempo_medio_bloqueio_ms = random.uniform(10, 1000)
+        recursos_medio_espera = random.uniform(0.0, 1.5)
+
+    # Métricas
+    num_threads_esperando = int(num_threads * pct_espera)
     pct_threads_esperando = num_threads_esperando / num_threads
-
     uso_medio_cpu = round(random.uniform(5, 90), 2)
-    tempo_medio_bloqueio_ms = round(random.uniform(10, 2000), 2)
     recursos_medio_em_uso = round(random.uniform(0.5, 3.0), 2)
-    recursos_medio_espera = round(random.uniform(0.0, 2.5), 2)
-
-    # novas métricas
     tempo_max_bloqueio_ms = round(random.uniform(tempo_medio_bloqueio_ms, tempo_medio_bloqueio_ms * 1.8), 2)
     desvio_padrao_bloqueio_ms = round(random.uniform(5, 300), 2)
     taxa_contention = round(recursos_medio_espera / (recursos_medio_em_uso + 0.001), 2)
@@ -34,7 +43,7 @@ def gerar_dados(id_instantaneo: int):
     )
     tem_deadlock = 1 if pontuacao > 0.7 else 0
 
-    dados = {
+    return {
         "id_instantaneo": f"S{id_instantaneo:05d}",
         "num_processos": num_processos,
         "num_threads": num_threads,
@@ -51,8 +60,6 @@ def gerar_dados(id_instantaneo: int):
         "delta_tempo_bloqueio": delta_tempo_bloqueio,
         "tem_deadlock": tem_deadlock
     }
-
-    return dados
 
 
 def gerar_base_dados(qtd=1000, semente=42):
