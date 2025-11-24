@@ -1,9 +1,12 @@
-import random
-import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import numpy as np
+import random
 
 def gerar_dados(id_instantaneo: int):
     """Gera um conjunto de dados simulando o estado do sistema"""
@@ -13,17 +16,17 @@ def gerar_dados(id_instantaneo: int):
     num_threads = num_processos * random.randint(2, 8)
 
     if cenario_critico:
-        # Força métricas altas para gerar Deadlock
-        pct_espera = random.uniform(0.4, 0.7) # Muita gente esperando
-        tempo_medio_bloqueio_ms = random.uniform(1300, 2000) # Bloqueio alto
+        # forçando métricas altas para gerar Deadlock
+        pct_espera = random.uniform(0.4, 0.7) # muita gente esperando
+        tempo_medio_bloqueio_ms = random.uniform(1300, 2000) # bloqueio alto
         recursos_medio_espera = random.uniform(1.9, 3.0)
     else:
-        # Cenário normal
+        # cenário normal
         pct_espera = random.uniform(0.0, 0.3)
         tempo_medio_bloqueio_ms = random.uniform(10, 1000)
         recursos_medio_espera = random.uniform(0.0, 1.5)
 
-    # Métricas
+    # métricas
     num_threads_esperando = int(num_threads * pct_espera)
     pct_threads_esperando = num_threads_esperando / num_threads
     uso_medio_cpu = round(random.uniform(5, 90), 2)
@@ -34,12 +37,15 @@ def gerar_dados(id_instantaneo: int):
     pct_processos_esperando = round(random.uniform(0, 0.6), 2)
     delta_tempo_bloqueio = round(random.uniform(-100, 500), 2)
 
+    fator_sorte = random.uniform(-0.1, 0.1) # ruído
+
     # pontuação probabilística para deadlock
     pontuacao = (
         0.4 * (num_threads_esperando / num_threads)
         + 0.3 * (tempo_medio_bloqueio_ms / 2000)
         + 0.2 * (recursos_medio_espera / 2.5)
         + 0.1 * taxa_contention
+        + fator_sorte
     )
     tem_deadlock = 1 if pontuacao > 0.7 else 0
 
@@ -61,7 +67,6 @@ def gerar_dados(id_instantaneo: int):
         "tem_deadlock": tem_deadlock
     }
 
-
 def gerar_base_dados(qtd=1000, semente=42):
     random.seed(semente)
     np.random.seed(semente)
@@ -70,7 +75,7 @@ def gerar_base_dados(qtd=1000, semente=42):
 
     df = df.sample(frac=1).reset_index(drop=True)
     df.to_csv("base_deadlock.csv", index=False)
-    print(f"✅ Base de dados gerada com {len(df)} instantes de sistema.")
+    print(f"Base de dados gerada com {len(df)} instantes de sistema.")
     print(df.head(10))
     return df
 
@@ -80,7 +85,7 @@ def previsao():
     X = df.drop(columns=["id_instantaneo", "tem_deadlock"])
     y = df["tem_deadlock"]
 
-    X_treino, X_teste, y_treino, y_teste = train_test_split(X, y, test_size=0.15, random_state=42)
+    X_treino, X_teste, y_treino, y_teste = train_test_split(X, y, test_size=0.25, random_state=42)
 
     modelo = RandomForestClassifier(
         n_estimators=400,
@@ -94,6 +99,34 @@ def previsao():
 
     print("Threshold padrão (0.5):")
     print(classification_report(y_teste, modelo.predict(X_teste)))
+
+    y_pred = modelo.predict(X_teste)
+    sns.set_style("whitegrid")
+    plt.figure(figsize=(12, 5))
+
+    # GRÁFICO A
+    plt.subplot(1, 2, 1)
+    importances = modelo.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    features = X.columns
+    
+    sns.barplot(x=importances[indices], y=features[indices], palette="viridis", hue=features[indices], legend=False)
+    plt.title("O que mais causa Deadlock? (Feature Importance)")
+    plt.xlabel("Grau de Importância")
+    plt.ylabel("Métrica do Sistema")
+
+    # GRÁFICO B
+    plt.subplot(1, 2, 2)
+    cm = confusion_matrix(y_teste, y_pred)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False,
+                xticklabels=['Normal', 'Deadlock'],
+                yticklabels=['Normal', 'Deadlock'])
+    plt.title("Matriz de Confusão")
+    plt.ylabel("Realidade (Ground Truth)")
+    plt.xlabel("Previsão do Modelo")
+
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     gerar_base_dados(10000)
